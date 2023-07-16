@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  rest_weather_api
+
+  Sample SAM Template for rest_weather_api
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Runtime: python3.9
+    CodeUri: src/
+    Timeout: 3
+    MemorySize: 128
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref WeatherTable
+
+
+Resources:
+
+  WeatherTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  WeatherApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Description: Serverless api endpiont for weather
+
+  CreateWeather:
+    Type: AWS::Serverless::Function
+    Description: 'Create a lamdba function'
+    Properties:
+      FunctionName: CreateWeatherLambda
+      Handler: create_weather.lamdba_handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /create-weather
+            Method: POST
+            RestApiId: !Ref WeatherApi
+    Connectors:
+      addWeatherItemToDB:
+        Properties:
+          Destination:
+            Id: WeatherTable
+          Permissions:
+            - Write
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  WeatherApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${WeatherApi}.execute-api.${AWS::Region}.amazonaws.com/dev/"
+  CreateWeatherFunction:
+    Description: "Create Weather Lambda Function ARN"
+    Value: !GetAtt CreateWeather.Arn
